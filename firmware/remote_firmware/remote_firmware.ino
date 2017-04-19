@@ -119,37 +119,32 @@ void setup() {
 
 }
 
-void writePacket(char * packet){
+void writePacket(int * signals, char * packet){
 
   for(int i = 0; i < 6; ++i) {
-    char * buffer = (char*)(&(numbers[i]));
+    char * buffer = (char*)(&(signals[i]));
     for(int j = 0; j < 2; ++j){
       packet[2*i + j] = buffer[j];
     }
   }
-  char buttonPacket = (button1Value ? 0 : 1 << 1) | (button2Value ? 0 : 1);
+  char buttonPacket = (signals[6] << 1) | signals[7];
   packet[12] = buttonPacket;
 }
 
-void readPacket(char * packet){
+void readPacket(int * signals, char * packet){
   char printBuf[258];
   
   for(int i = 0; i < 6; ++i){
       sprintf(printBuf, "%d ", *(((int*)(packet)) + i));
+      signals[i] = *(((int*)(packet))+i);
       Serial.print(printBuf);
   }
 
   char buttonPacket = packet[12];
   int button1 = buttonPacket >> 1;
   int button2 = buttonPacket & B00000001;
-  sprintf(printBuf, "Button1: %d ", button1);
-  Serial.print(printBuf);
-  sprintf(printBuf, "Button2: %d", button2);
-  Serial.print(printBuf);
-  
-  Serial.print("\n");
-
-  delay(100);
+  signals[6] = button1;
+  signals[7] = button2;
 
 }
 
@@ -204,20 +199,24 @@ void loop() {
   /* RADIO TEST: Test sending/receiving of serial data over radio */
 
   /* If serial comes in... */
+  int signals[8];
+
+  for(char i = 0;  i < 6; ++i) {
+    signals[i] = numbers[i];
+  }
+
+  signals[6] = !button1Value;
+  signals[7] = !button2Value;
 
   char packet[13];
   writePacket(packet);
-  readPacket(packet);
-  
   rfPrint(packet);
-  delay(1000);
 
-  
   if (rfAvailable())  // If data received on radio...
   {
     Serial.print(rfRead());  // ... send it out serial.
   }
  
-  delay(200);
+  delay(100);
 
 }
