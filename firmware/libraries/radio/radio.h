@@ -23,6 +23,9 @@
     TRX24_RX_END_vect - End of radio receive. Characters are 
                         collected into a buffer here.
 */
+#ifndef RADIO_H
+#define RADIO_H
+
   
 #include <Arduino.h> // Required for digitalWrites, etc.
 
@@ -241,3 +244,5 @@ ISR(TRX24_RX_END_vect)
 
   digitalWrite(RX_LED, LOW);  // Turn receive LED off, and we're out
 }
+
+#endif
