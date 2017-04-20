@@ -1,9 +1,17 @@
 int pin = 3;
 int MIN = 0;
 int MAX = 255;
+int arr[8];
+
+#include "packet.h"
+#include "radio.h"
+
 void setup() {
   // put your setup code here, to run once:
   analogWrite(pin, 0);
+  rfBegin(24);
+  Serial.begin(9600);  // Start up serial
+  Serial1.begin(115200);
 }
 
 void loop() {
@@ -13,7 +21,11 @@ void loop() {
     setSpeed(i);
   }*/
   //delay(1000);
-  setSpeed(MAX/2);
+  if(rfAvailable() >= 8){
+    receivePacket(arr);
+    setSpeed(arr[0]);
+    Serial.print(arr[0]);
+  }
   //delay(1000);
   //setSpeed(MIN);
 }
