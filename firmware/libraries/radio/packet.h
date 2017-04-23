@@ -4,10 +4,26 @@
 
 #include <radio.h>
 
-void sendPacket(int* values){
+char* sendPacket(int* values){
 
-    char packet[8];
+    char * packet = malloc(sizeof(char)*8);
     char MAXCHAR = B11111111;
+
+    char packet2[13];
+    for(int i = 0 ; i < 6; ++i){
+        char * valuesRef = (char*) values;
+        char idx1 = *(valuesRef + i);
+        char idx2 = *(valuesRef + i + 1);
+        packet2[2*i] = idx1;
+        packet2[2*i+1] = idx2;
+    }
+    packet2[11] = values[6] ? 1 : 0;
+    packet2[12] = values[7] ? 1 : 0;
+
+    for(int i = 0; i < 13; ++i){
+        rfWrite(packet2[i]);
+    }
+    return;
 
     packet[0] = (values[0] & MAXCHAR) >> 2;
     packet[1] = ((values[0] & MAXCHAR) << 6) | ((values[1] & MAXCHAR) >> 4);
@@ -20,19 +36,37 @@ void sendPacket(int* values){
     packet[7] |= values[6] == 1024? 1 << 1 : 0;
     packet[7] |= values[7] == 1024? 1 : 0;
 
-    rfPrint(packet);
+    for(int i = 0; i < 8; ++i){
+        rfWrite(packet[i]);
+    }
+
+    return packet;
 }
 
-
 int MAXCHAR = B11111111;
-void receivePacket(int * values){
+bool receivePacket(int * values){
 
-    char packet[8];
-    if(rfAvailable() == 8){
-        for(int i = 0; i < 8; ++i){
+    char packet[13];
+    if(rfAvailable() >= 13){
+        for(int i = 0; i < 13; ++i){
             packet[i] = rfRead();
         }
+        while(rfAvailable()){
+            rfRead();
+        }
+    } else {
+        return 0;
     }
+
+    for(int i = 0; i <= 10; i+=2){
+        int value = *((int*)(packet + i));
+        values[i/2] = value;
+    }
+
+    values[6] = (packet[11]) ? 1024 : 0;
+    values[7] = (packet[12]) ? 1024 : 0;
+
+    return 1;
 
     int increment = 2;
     for(int i = 0; i <= 5; ++i){
@@ -48,10 +82,10 @@ void receivePacket(int * values){
         increment += 2;
     }
 
-    values[6] = packet[7] >> 1 ? 1024 : 0;
+    values[6] = (packet[7] >> 1) & 1 ? 1024 : 0;
     values[7] = packet[7] & 1 ? 1024 : 0;
 
-    return;
+    return 1;
 }
 
 #endif

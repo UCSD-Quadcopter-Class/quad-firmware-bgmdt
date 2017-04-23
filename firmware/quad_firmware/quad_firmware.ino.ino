@@ -1,21 +1,38 @@
+#include "packet.h"
+#include <radio.h>
+
 int pin = 3;
 int MIN = 0;
 int MAX = 255;
+
+int RF_CHANNEL = 24;
+
 void setup() {
   // put your setup code here, to run once:
+  rfBegin(RF_CHANNEL);
+  Serial.begin(9600);
   analogWrite(pin, 0);
 }
 
+int values[8];
+char printBuf1[128];
+
 void loop() {
-  // put your main code here, to run repeatedly:
-  /*for( int i =0; i < MAX; i++){
-    delay(1000);
-    setSpeed(i);
-  }*/
-  //delay(1000);
-  setSpeed(MAX/2);
-  //delay(1000);
-  //setSpeed(MIN);
+  if(rfAvailable() >= 8){
+    bool readPacket = receivePacket(values);
+
+    if(readPacket){
+      for(int i = 0; i < 8; ++i){
+        sprintf(printBuf1, "%d ", values[i]);
+        Serial.print(printBuf1); 
+      }
+      Serial.print('\n');
+      setSpeed(values[0] >> 2);  
+    }
+    
+  }
+  
+  delay(50);
 }
 
 void setSpeed(int s){

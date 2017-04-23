@@ -88,7 +88,7 @@ void setup() {
 
   //lcd.print("Hello, World!");
  
-  const int RADIO_CHANNEL = 25;        // Channel for radio communications (can be 11-26)
+  const int RADIO_CHANNEL = 24;        // Channel for radio communications (can be 11-26)
   const int SERIAL_BAUD = 9600;        // Baud rate for serial port 
   const int SERIAL1_BAUD = 9600;     // Baud rate for serial1 port
 
@@ -125,7 +125,7 @@ void setup() {
 }
 
 int last = 0;
-
+char printBuf[128];
 void loop() {
 
   /* BUTTON TEST: Print to serial when button press registered */
@@ -161,8 +161,24 @@ void loop() {
     }
   
     update_display();
+
     
-    sendPacket(numbers);
+    for(int i =0; i < 8; ++i){
+      sprintf(printBuf, "%d ", numbers[i]);
+      Serial.print(printBuf);
+    }
+    Serial.print('\n');
+
+    char * packet = sendPacket(numbers);
+
+    free(packet);
+    
+    for(int i = 0; i < 8; ++i){
+      sprintf(printBuf, "%x ", numbers[i]);
+      Serial.print(printBuf);
+    }
+    Serial.print('\n');
+    
   } else {
     lcd.clear();
     lcd.home();
@@ -172,8 +188,8 @@ void loop() {
       enterConfigurationMode();
     }
   }
- 
-  delay(100);
+
+  delay(2000);
 
 }
 
