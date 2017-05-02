@@ -4,57 +4,49 @@
 
 #include <radio.h>
 
+typedef struct structPacket Packet;
+struct structPacket {
+    int throttle;
+    int yaw;
+    int pitch;
+    int roll;
+    int pot1;
+    int pot2;
+    int btn1;
+    int btn2;
+    int verify;
+};
+
 void sendPacket(uint8_t * values, uint8_t num){
 
     rfWrite(values, num);
 
 }
 
-int MAXCHAR = B11111111;
-bool receivePacket(int * values){
+bool receivePacket(Packet &pkt){
+    char buffer[18];
+    int values[9];
 
-    char packet[8];
-    if(rfAvailable() >= 8){
-        for(int i = 0; i < 8; ++i){
-            packet[i] = rfRead();
-        }
-        while(rfAvailable()){
-            rfRead();
-        }
-    } else {
-        return 0;
+    if(rfAvailable() > sizeof(Packet)){
+        rfRead(buffer, sizeof(Packet));
     }
 
-    /*
-    for(int i = 0; i <= 10; i+=2){
-        int value = *((int*)(packet + i));
-        values[i/2] = value;
+    for(int i = 0; i < 9; ++i){
+        int * reference = (int*)(buffer + 2*i);
+        values[i] = *reference;
     }
+    
+    pkt.throttle = values[0];
+    pkt.yaw = values[1];
+    pkt.pitch = values[2];
+    pkt.roll = values[3];
+    pkt.pot1 = values[4];
+    pkt.pot2 = values[5];
+    pkt.btn1 = values[6];
+    pkt.btn2 = values[7];
+    pkt.verify = values[8];
 
-    values[6] = (packet[11]) ? 1024 : 0;
-    values[7] = (packet[12]) ? 1024 : 0;
-
-    return 1;
-    */
-
-    int increment = 2;
-    for(int i = 0; i <= 5; ++i){
-        int mask = (1 << (8 - ((increment - 2) % 8))) - 1;
-        int value = packet[i + (increment - 2)/8] & mask;
-        value <<= (increment % 8)? (increment % 8): increment;
-
-        int remainder = (increment % 8)? 
-            (MAXCHAR & packet[1 + i + (increment - 2)/8]) >> (8 - (increment % 8)):
-            (MAXCHAR & packet[1 + i + (increment - 2)/8]);
-
-        values[i] = value + remainder;
-        increment += 2;
-    }
-
-    values[6] = (packet[7] >> 1) & 1 ? 1024 : 0;
-    values[7] = packet[7] & 1 ? 1024 : 0;
-
-    return 1;
+    return;
 }
 
 #endif
