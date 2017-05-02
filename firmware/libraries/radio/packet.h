@@ -35,7 +35,10 @@ bool receivePacket(Packet &pkt){
     for(int i = 0; i < 9; ++i){
         int * reference = (int*)(buffer + 2*i);
         values[i] = *reference;
+        Serial.print(values[i]);
+        Serial.print(' ');
     }
+    Serial.print('\n');
     
     pkt.throttle = values[0];
     pkt.yaw = values[1];
