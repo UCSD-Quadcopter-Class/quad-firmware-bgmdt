@@ -1,6 +1,8 @@
+
 int pin = 3;
 int MIN = 0;
 int MAX = 255;
+
 void setup() {
   // put your setup code here, to run once:
   analogWrite(pin, 0);

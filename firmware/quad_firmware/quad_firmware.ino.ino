@@ -51,11 +51,16 @@ void configureLSM9DS0(void)
 
 void setup() {
   // put your setup code here, to run once:
-  analogWrite(pin, 0);
+  analogWrite(AFT_L_PIN, 0);
+  analogWrite(AFT_R_PIN, 0);
+  analogWrite(FT_L_PIN, 0);
+  analogWrite(FT_R_PIN, 0);
+
+
   rfBegin(24);
   Serial.begin(9600);  // Start up serial
   Serial1.begin(115200);
-  configureLSMDS0();
+  //configureLSM9DS0();
 }
 
 void loop() {
@@ -74,22 +79,28 @@ void loop() {
   readData();
   //readSensors();
   pidCalc();
-  writeToMotors();
+  if(packet.verify == 3435){
+    writeToMotors();
+  }
   //delay(1000);
   //setSpeed(MIN);
+  Serial.print(packet.throttle);
 }
 
 void readData(){
   if(rfAvailable() >= sizeof(Packet)){
     receivePacket(packet);
-  }
+  } 
 }
 
 void readSensors(){
   
 }
+void pidCalc(){
+  
+}
 void writeToMotors(){
-  s = packet.throttle;
+  int s = packet.throttle;
   if(s > MAX){
     s = MAX;
   }

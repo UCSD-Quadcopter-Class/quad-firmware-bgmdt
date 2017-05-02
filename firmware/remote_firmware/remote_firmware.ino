@@ -15,19 +15,21 @@
 #include "quad_remote.h"      // Header file with pin definitions and setup
 #include <serLCD.h>
 
+// Configuration and Setup Flags
+bool configuredFlag = false;
 
-  // Initialize global variables for storing incoming data from input pins
-  int readYaw = 0;
-  int readThrottle = 0;
-  int readRoll = 0;
-  int readPitch = 0; 
-  int readPot1 = 0;
-  int readPot2 = 0;
-  int button1Value = 0;     // buttons are active high
-  int button2Value = 0; 
-  bool button1Press = 0;
-  bool button2Press = 0;
-  bool LEDVal = 0;
+// Initialize global variables for storing incoming data from input pins
+int readYaw = 0;
+int readThrottle = 0;
+int readRoll = 0;
+int readPitch = 0; 
+int readPot1 = 0;
+int readPot2 = 0;
+int button1Value = 0;     // buttons are active high
+int button2Value = 0; 
+bool button1Press = 0;
+bool button2Press = 0;
+bool LEDVal = 0;
 
 uint8_t scale[8] = 
                  {B00000000,
@@ -43,10 +45,11 @@ int maxVals[8];
 int minVals[8];
 float scaleVals[8];
 
-int numbers[8] = {0,1,2,3,4,5,6,7};
+int numbers[9] = {0,1,2,3,4,5,6,7, 8};
 char *labels[8] = {"T ", "Y ", "P ", "R ", "P1", "P2", "B1", "B2"};
+
 char pins[8] = {PIN_THROTTLE, PIN_YAW, PIN_PITCH, PIN_ROLL, PIN_POT1, PIN_POT2, PIN_POT1, PIN_POT2};
-bool configuredFlag = false;
+
 
 serLCD lcd;
 
@@ -85,10 +88,8 @@ void update_display() {
 }
 
 void setup() {
-
-  //lcd.print("Hello, World!");
  
-  const int RADIO_CHANNEL = 25;        // Channel for radio communications (can be 11-26)
+  const int RADIO_CHANNEL = 24;        // Channel for radio communications (can be 11-26)
   const int SERIAL_BAUD = 9600;        // Baud rate for serial port 
   const int SERIAL1_BAUD = 9600;     // Baud rate for serial1 port
 
@@ -104,10 +105,6 @@ void setup() {
  
   rfBegin(RADIO_CHANNEL);              // Initialize ATmega128RFA1 radio on given channel
   
-  // Send a message to other RF boards on this channel
-  //rfPrint("ATmega128RFA1 Dev Board Online!\r\n");
-  
-  // Set pin modes for all input pins
   pinMode(PIN_YAW, INPUT);             // Gimbal: Yaw
   pinMode(PIN_THROTTLE, INPUT);        // Gimbal: throttle
   pinMode(PIN_ROLL, INPUT);            // Gimbal: roll
@@ -124,121 +121,77 @@ void setup() {
 
 }
 
-int last = 0;
-
+int lastRead = 0;
 void loop() {
 
-  /* BUTTON TEST: Print to serial when button press registered */
+  /* Remote Control Main Loop */
 
-  // Read incoming presses from buttons: WHY AREN'T INTERRUPTS WORKING
-  button1Value = digitalRead(PIN_BTN1); 
-  button2Value = digitalRead(PIN_BTN2); 
+  // Read incoming presses from buttons
+  numbers[6] = digitalRead(PIN_BTN1) ? 0: 1024; 
+  numbers[7] = digitalRead(PIN_BTN2)? 0: 1024; 
     
-  // Print to serial if press registered
-  numbers[6] = button1Value? 0 : 1024;
-  numbers[7] = button2Value? 0 : 1024;
-
-
-
   if(configuredFlag){
   
-    if (last + 1000 <= millis()) {
+    if (lastRead + 1000 <= millis()) {
       LEDVal = 1;//!LEDVal;
       digitalWrite(PIN_LED_BLUE, LEDVal);
       digitalWrite(PIN_LED_GRN, LEDVal);
       digitalWrite(PIN_LED_RED, LEDVal);
-      last = millis();
+      lastRead = millis();
     }
+    
     // Read analog values
     for(char i = 0; i < 6; i++) {
       numbers[i] = analogRead(pins[i]); 
     }
 
+    // Scale analog value based on min/maxes
     for(char i = 0; i < 6; ++i){
       numbers[i] = (int)((numbers[i] - minVals[i]) * scaleVals[i]);
       numbers[i] = numbers[i] < 0 ? 0 : numbers[i];
       numbers[i] = numbers[i] > 1023 ? 1023 : numbers[i];
     }
-  
+
+    // Update display with graph of values
     update_display();
+
+    sendPacket((uint8_t*)&numbers, 18);
     
-    sendPacket(numbers);
   } else {
+    // Not configured
+    
     lcd.clear();
     lcd.home();
     lcd.print("Configure:        Use Button 1");
     delay(500);
+    
     if(numbers[6]){
-      enterConfigurationMode();
+      configurationMode();
     }
   }
- 
+
   delay(100);
 
 }
 
-void printMaxConfigurationCountdown(){
+void printConfigurationCountdown(char * strMsg, int seconds){
   char printBuf[128];
-  for(int i = 3; i > 0; --i){
-    sprintf(printBuf, "MAX:   0%ds      ", i);
+  for(int i = seconds; i > 0; --i){
+    sprintf(printBuf, "%s   0%ds", strMsg, i);
     lcd.clear();
     lcd.home();
     lcd.print(printBuf);
     delay(1000);
   }
+  
   lcd.clear();
   lcd.home();
-  lcd.print("Reading YTRP...");
+  lcd.print("Reading...");
   delay(200);
 }
 
-void printMinConfigurationCountdown(){
-  char printBuf[128];
-  for(int i = 3; i > 0; --i){
-    sprintf(printBuf, "MIN:   0%ds      ", i);
-    lcd.clear();
-    lcd.home();
-    lcd.print(printBuf);
-    delay(1000);
-  }
-  lcd.clear();
-  lcd.home();
-  lcd.print("Reading YTRP...");
-  delay(200);  
-}
-
-void printMaxPotCountdown(){
-  char printBuf[128];
-  for(int i = 9; i > 0; --i){
-    sprintf(printBuf, "MAX:   0%ds      ", i);
-    lcd.clear();
-    lcd.home();
-    lcd.print(printBuf);
-    delay(1000);
-  }
-  lcd.clear();
-  lcd.home();
-  lcd.print("Reading POTs...");
-  delay(1000);  
-}
-
-void printMinPotCountdown(){
-  char printBuf[128];
-  for(int i = 9; i > 0; --i){
-    sprintf(printBuf, "MIN:   0%ds      ", i);
-    lcd.clear();
-    lcd.home();
-    lcd.print(printBuf);
-    delay(1000);
-  }
-  lcd.clear();
-  lcd.home();
-  lcd.print("Reading POTs...");
-  delay(1000);  
-}
-
-void enterConfigurationMode(){
-  printMaxConfigurationCountdown();
+void configurationMode(){
+  printConfigurationCountdown("MAX:", 3);
 
   for(int i = 0; i < 4; ++i){
     maxVals[i] = analogRead(pins[i]);
@@ -246,7 +199,7 @@ void enterConfigurationMode(){
   maxVals[6] = 1024;
   maxVals[7] = 1024;
 
-  printMinConfigurationCountdown();
+  printConfigurationCountdown("MIN:", 3);
 
   for(int i = 0; i < 4; ++i){
     minVals[i] = analogRead(pins[i]);
@@ -254,13 +207,13 @@ void enterConfigurationMode(){
   minVals[6] = 0;
   minVals[7] = 0;
 
-  printMaxPotCountdown();
+  printConfigurationCountdown("MAX:", 9);
 
   for(int i = 4; i < 6; ++i){
     maxVals[i] = analogRead(pins[i]);
   }
   
-  printMinPotCountdown();
+  printConfigurationCountdown("MIN:", 9);
 
   for(int i = 4; i < 6; ++i){
     minVals[i] = analogRead(pins[i]);
