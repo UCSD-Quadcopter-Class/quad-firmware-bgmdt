@@ -19,6 +19,7 @@ struct structPacket {
 
 void sendPacket(uint8_t * values, uint8_t num){
 
+    Serial.print("Writing...\n");
     rfWrite(values, num);
 
 }
@@ -27,7 +28,7 @@ bool receivePacket(Packet &pkt){
     char buffer[18];
     int values[9];
 
-    if(rfAvailable() > sizeof(Packet)){
+    if(rfAvailable() >= sizeof(Packet)){
         rfRead(buffer, sizeof(Packet));
     }
 
