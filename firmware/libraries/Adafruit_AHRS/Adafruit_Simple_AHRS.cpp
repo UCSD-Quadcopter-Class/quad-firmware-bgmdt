@@ -1,7 +1,7 @@
 #include "Adafruit_Simple_AHRS.h"
 
 // Create a simple AHRS from an explicit accelerometer and magnetometer sensor.
-Adafruit_Simple_AHRS::Adafruit_Simple_AHRS(Adafruit_Sensor* accelerometer, Adafruit_Sensor* magnetometer):
+Adafruit_Simple_AHRS::Adafruit_Simple_AHRS(Adafruit_Sensor* accelerometer,Adafruit_Sensor* magnetometer):
   _accel(accelerometer),
   _mag(magnetometer)
 {}
@@ -12,6 +12,12 @@ Adafruit_Simple_AHRS::Adafruit_Simple_AHRS(Adafruit_Sensor_Set& sensors):
   _mag(sensors.getSensor(SENSOR_TYPE_MAGNETIC_FIELD))
 {}
 
+
+Adafruit_Simple_AHRS::Adafruit_Simple_AHRS(Adafruit_Sensor* accelerometer, Adafruit_Sensor* magnetometer,Adafruit_Sensor* gyroscope):
+	_accel(accelerometer),
+	_mag(magnetometer),
+	_gyro(gyroscope)
+{}
 // Compute orientation based on accelerometer and magnetometer data.
 bool Adafruit_Simple_AHRS::getOrientation(sensors_vec_t* orientation) {
   // Validate input and available sensors.
@@ -73,13 +79,15 @@ bool Adafruit_Simple_AHRS::getOrientation(sensors_vec_t* orientation) {
 
 bool Adafruit_Simple_AHRS::getQuadOrientation(sensors_vec_t* orientation) {
   // Validate input and available sensors.
-  if (orientation == NULL || _accel == NULL || _mag == NULL) return false;
+  if (orientation == NULL || _accel == NULL || _gyro == NULL) return false;
 
   // Grab an acceleromter and magnetometer reading.
   sensors_event_t accel_event;
   _accel->getEvent(&accel_event);
-  sensors_event_t mag_event;
-  _mag->getEvent(&mag_event);
+  //sensors_event_t mag_event;
+  //_mag->getEvent(&mag_event);
+  sensors_event_t gyro_event;
+  _gyro->getEvent(&gyro_event);
 
   float const PI_F = 3.14159265F;
 
@@ -115,16 +123,17 @@ bool Adafruit_Simple_AHRS::getQuadOrientation(sensors_vec_t* orientation) {
   //                    x * cos(pitch) + y * sin(pitch) * sin(roll) + z * sin(pitch) * cos(roll))   
   //                                                                                                
   // where:  x, y, z are returned value from magnetometer sensor                                    
-  orientation->heading = (float)atan2(mag_event.magnetic.z * sin(orientation->roll) - mag_event.magnetic.y * cos(orientation->roll), \
+ /* orientation->heading = (float)atan2(mag_event.magnetic.z * sin(orientation->roll) - mag_event.magnetic.y * cos(orientation->roll), \
                                       mag_event.magnetic.x * cos(orientation->pitch) + \
                                       mag_event.magnetic.y * sin(orientation->pitch) * sin(orientation->roll) + \
-                                      mag_event.magnetic.z * sin(orientation->pitch) * cos(orientation->roll));
+                                      mag_event.magnetic.z * sin(orientation->pitch) * cos(orientation->roll));*/
 
 
   // Convert angular data to degree 
   orientation->roll = orientation->roll * 180 / PI_F;
   orientation->pitch = orientation->pitch * 180 / PI_F;
-  orientation->heading = orientation->heading * 180 / PI_F;
+  orientation->yaw = 180 * atan (accel_event.acceleration.z/sqrt(accel_event.acceleration.x*accel_event.acceleration.x + accel_event.acceleration.z*accel_event.acceleration.z))/PI_F;
+  //orientation->heading = orientation->heading * 180 / PI_F;
 
   return true;
 }
