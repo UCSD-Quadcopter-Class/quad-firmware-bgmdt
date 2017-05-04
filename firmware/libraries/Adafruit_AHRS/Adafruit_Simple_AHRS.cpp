@@ -88,6 +88,7 @@ bool Adafruit_Simple_AHRS::getQuadOrientation(sensors_vec_t* orientation) {
   //_mag->getEvent(&mag_event);
   sensors_event_t gyro_event;
   _gyro->getEvent(&gyro_event);
+  static float yawVal = 0;
 
   float const PI_F = 3.14159265F;
 
@@ -132,6 +133,10 @@ bool Adafruit_Simple_AHRS::getQuadOrientation(sensors_vec_t* orientation) {
   // Convert angular data to degree 
   orientation->roll = orientation->roll * 180 / PI_F;
   orientation->pitch = orientation->pitch * 180 / PI_F;
+  orientation->roll_rate = gyro_event.gyro.x;
+  orientation->pitch_rate = -gyro_event.gyro.y;
+  orientation->yaw_rate = -gyro_event.gyro.z;
+  //TODO: Fix yaw calculation
   orientation->yaw = 180 * atan (accel_event.acceleration.z/sqrt(accel_event.acceleration.x*accel_event.acceleration.x + accel_event.acceleration.z*accel_event.acceleration.z))/PI_F;
   //orientation->heading = orientation->heading * 180 / PI_F;
 

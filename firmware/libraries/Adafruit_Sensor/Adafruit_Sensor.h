@@ -76,6 +76,9 @@ typedef struct {
             float pitch;   /**< Rotation around the lateral axis (the wing span, 'Y axis'). Pitch is positive and increasing when moving upwards. -180°<=pitch<=180°) */
             float heading; /**< Angle between the longitudinal axis (the plane body) and magnetic north, measured clockwise when viewing from the top of the device. 0-359° */
 			float yaw;
+			float pitch_rate;
+			float roll_rate;
+			float yaw_rate;
         };
     };
     int8_t status;

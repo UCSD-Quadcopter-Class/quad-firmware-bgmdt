@@ -1,3 +1,4 @@
+
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
@@ -17,6 +18,7 @@ int FT_R_PIN = 8;
 int MIN = 0;
 int MAX = 255;
 int DEADZONE = 15;
+float COMP_GAIN = .4;
 int arr[8];
 
 /*typedef struct structPacket Packet;
@@ -43,10 +45,10 @@ sensors_vec_t orientation;
 //PID VARS
 float PID[3][3]; //0 - pitch, 1 roll, 2 yaw
 float setpts[3]; //0 -pitch, 1 roll, 2 yaw
-float sensorIns[3]; //0-pitch, 1 roll, 2 yaw
+float sensorIns[3][2]; //0-pitch, 1 roll, 2 yaw
 float PIDaccs[3];//accumulator for pitch, roll, yaw
 long lastTimes[3];
-float lastErr[3];
+float lastErr[3][20];
 float outputs[3][12]; //0, pitch, 1 roll, 2 yaw holds memory of last 10 outputs for rolling filter
 
 
@@ -125,12 +127,12 @@ void readData(){
       packet.pitch = 45;
     }
     //do the same for roll
-    packet.roll = packet.roll - 512;
+    packet.roll = packet.roll - 460;
     if(packet.roll < DEADZONE && packet.roll > -DEADZONE){
       packet.roll = 0;
     }
     //scale to be -45 to 45 degrees
-    packet.roll = ((float)packet.roll)/512.0*45.0;
+    packet.roll = ((float)packet.roll)/460.0*45.0;
 
     setpts[0] = packet.pitch;
     setpts[1] = packet.roll;
@@ -138,18 +140,34 @@ void readData(){
     //scale throttle
    packet.throttle = (((float)packet.throttle)/1024.0)*255.0;
 
+   static bool enable = true;
    //change pid vals
+   if(packet.btn2){
+    enable = !enable;
+   }
+   //COMP_GAIN = ((float)packet.pot1)/1024.0;
    PID[0][0] = ((float)packet.pot1)/1024.0*3.0;
+   if(enable){
    PID[0][2] = ((float)packet.pot2)/1024.0*3.0;
+   }
+   else{
+    PID[0][1] = ((float)packet.pot2)/1024.0*3.0;
+   }
+   //PID[0][0] = 1.72;
+   //PID[0][2] = 1.98;
+   
     
   } 
 }
 
 void readSensors(){
   ahrs.getQuadOrientation(&orientation);
-  sensorIns[0] = orientation.pitch;
-  sensorIns[1] = orientation.roll;
-  sensorIns[2] = orientation.yaw;
+  sensorIns[0][0] = orientation.pitch;
+  sensorIns[0][1] = orientation.pitch_rate/1000;//convert from deg/s to deg/ms
+  sensorIns[1][0] = orientation.roll;
+  sensorIns[1][1] = orientation.roll_rate/1000;
+  sensorIns[2][0] = orientation.yaw;
+  sensorIns[2][1] = orientation.yaw_rate/1000;
   /*Serial.print(sensorIns[0]);
   Serial.print(' ');
   Serial.print(sensorIns[1]);
@@ -162,29 +180,51 @@ void pidCalc(){
   for (int i = 0; i < 3; i++){
     long currentTime = millis();
     long delta = currentTime-lastTimes[i];
-    float error = setpts[i] - sensorIns[i];
-    PIDaccs[i] += error*delta;
-    float deltaError = error - lastErr[i];//change between now and last
+    //complimentary filter
+    sensorIns[i][0] = COMP_GAIN*(sensorIns[i][0] + delta*sensorIns[i][1]) + (1 - COMP_GAIN)*(sensorIns[i][0]);
+    float error = setpts[i] - sensorIns[i][0];
+    //avg out our error to smooth it
+    for(int j = 0; j < 20; j++){
+      error += lastErr[i][j];
+    }
+    error /=21.0;
+    for(int j = 0; j < 19; j++){
+      lastErr[i][j+1] = lastErr[i][j];
+    }
+
+    if(error < 1 && error > -1){
+      error = 0;
+    }
+    
+    PIDaccs[i] += error;
+    //combat integral windup
+    if(PIDaccs[i] > MAX/2){
+      PIDaccs[i] = MAX/2;
+    }
+    else if(PIDaccs[i] < -MAX/2){
+      PIDaccs[i] = -MAX/2;
+    }
+    float deltaError = error - lastErr[i][0];//change between now and last
 
     float output = PID[i][0]*error + PID[i][1]*PIDaccs[i]+PID[i][2]*deltaError;
     // we r gonna avg this output against all previous
     //two loops, one for the avg and one for the shiftin
     float avg = output;
-    for(int j = 0; j<12; j++){
+    for(int j = 0; j<10; j++){
       avg+= outputs[i][j];
     }
-    avg/= 13.0;
-    for(int j = 0; j < 11; j++){
+    avg/= 11.0;
+    for(int j = 0; j < 9; j++){
       outputs[i][j+1] = outputs[i][j];
     }
-    if(avg >MAX){
-      avg = MAX;
+    if(avg >MAX/2){
+      avg = MAX/2;
     }
-    if(avg < -MAX){
-      avg = - MAX;
+    if(avg < -MAX/2){
+      avg = - MAX/2;
     }
     outputs[i][0] = avg;
-    lastErr[i] = error;
+    lastErr[i][0] = error;
     lastTimes[i] = currentTime;
     Serial.print(error);
     Serial.print(' ');
