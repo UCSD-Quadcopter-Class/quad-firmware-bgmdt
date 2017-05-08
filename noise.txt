@@ -1,0 +1,9 @@
+Combatting noise:
+
+We enabled high resolution mode and set the Filter cutoff, we experimented with a few different values
+and didn't really notice changes.
+
+We implemented a complementary filter according to what Swanson said in lecture, we set the 
+constant to .4 because that gave us the smoothest data.
+
+We also implemented a moving average on the data to smooth it out, which helped us quite a bit.
