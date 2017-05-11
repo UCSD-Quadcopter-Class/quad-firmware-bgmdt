@@ -17,9 +17,12 @@ int FT_L_PIN = 5;
 int FT_R_PIN = 8;
 int MIN = 0;
 int MAX = 255;
+float MAXERR = 45;
 int DEADZONE = 15;
-float COMP_GAIN = .4;
+float COMP_GAIN = .94;
 int arr[8];
+bool enable = false;;
+
 
 /*typedef struct structPacket Packet;
 struct structPacket{
@@ -140,19 +143,14 @@ void readData(){
     //scale throttle
    packet.throttle = (((float)packet.throttle)/1024.0)*255.0;
 
-   static bool enable = true;
    //change pid vals
    if(packet.btn2){
     enable = !enable;
    }
    //COMP_GAIN = ((float)packet.pot1)/1024.0;
-   PID[0][0] = ((float)packet.pot1)/1024.0*3.0;
-   if(enable){
-   PID[0][2] = ((float)packet.pot2)/1024.0*3.0;
-   }
-   else{
-    PID[0][1] = ((float)packet.pot2)/1024.0*3.0;
-   }
+   PID[0][0] = ((float)packet.pot1)/1024.0*4.0;
+   PID[0][2] = ((float)packet.pot2)/1024.0*4.0;
+   //PID[0][1] = ((float)packet.pot2)/1024.0*3.0;
    //PID[0][0] = 1.72;
    //PID[0][2] = 1.98;
    
@@ -178,25 +176,38 @@ void readSensors(){
 void pidCalc(){
   //loop for each of pitch, roll, yaw
   for (int i = 0; i < 3; i++){
-    long currentTime = millis();
+    unsigned long currentTime = millis();
     long delta = currentTime-lastTimes[i];
+    
+    //set pitch
+    if(i==2){
+      orientation.yaw += sensorIns[2][1]*delta;
+      sensorIns[2][0] = orientation.yaw;
+    }
     //complimentary filter
-    sensorIns[i][0] = COMP_GAIN*(sensorIns[i][0] + delta*sensorIns[i][1]) + (1 - COMP_GAIN)*(sensorIns[i][0]);
+    sensorIns[i][0] = COMP_GAIN*(sensorIns[i][0] + delta*sensorIns[i][1]) + (1 - COMP_GAIN)*(orientation.pitch);//last term should be pitch not old imu
     float error = setpts[i] - sensorIns[i][0];
     //avg out our error to smooth it
-    for(int j = 0; j < 20; j++){
+    /*for(int j = 0; j < 10; j++){
       error += lastErr[i][j];
     }
-    error /=21.0;
-    for(int j = 0; j < 19; j++){
+    error /=11.0;
+    for(int j = 0; j < 9; j++){
       lastErr[i][j+1] = lastErr[i][j];
-    }
+    }*/
 
     if(error < 1 && error > -1){
       error = 0;
     }
+
+    if(error < -MAXERR){
+      error = -MAXERR;
+    }
+    if (error > MAXERR){
+      error = MAXERR;
+    }
     
-    PIDaccs[i] += error;
+    PIDaccs[i] += error;//*delta;//todo verify delta necessary
     //combat integral windup
     if(PIDaccs[i] > MAX/2){
       PIDaccs[i] = MAX/2;
@@ -206,31 +217,40 @@ void pidCalc(){
     }
     float deltaError = error - lastErr[i][0];//change between now and last
 
-    float output = PID[i][0]*error + PID[i][1]*PIDaccs[i]+PID[i][2]*deltaError;
+    float output = PID[i][0]*error + PID[i][1]*PIDaccs[i]+PID[i][2]*deltaError;///delta;//todo verify delta correct
     // we r gonna avg this output against all previous
     //two loops, one for the avg and one for the shiftin
     float avg = output;
-    for(int j = 0; j<10; j++){
+   /* for(int j = 0; j<10; j++){
       avg+= outputs[i][j];
     }
     avg/= 11.0;
     for(int j = 0; j < 9; j++){
       outputs[i][j+1] = outputs[i][j];
-    }
-    if(avg >MAX/2){
+    }*/
+    /*if(avg >MAX/2){
       avg = MAX/2;
     }
     if(avg < -MAX/2){
       avg = - MAX/2;
-    }
+    }*/
     outputs[i][0] = avg;
     lastErr[i][0] = error;
     lastTimes[i] = currentTime;
+    if(i == 0){
+      Serial.print(orientation.pitch);
+      Serial.print(' ');
+      Serial.print(sensorIns[0][0]);
+      Serial.print(' ');
+      Serial.print(sensorIns[0][1]);
+      Serial.print(' ');
     Serial.print(error);
     Serial.print(' ');
     Serial.print(avg);
     Serial.print(' ');
-    
+    Serial.print(delta);
+    Serial.print(' ');
+    }
     
   }
   Serial.print('\n');
@@ -262,6 +282,10 @@ void writeToMotors(){
   aft_r = throttle + outputs[0][0] - outputs[1][0] + outputs[2][0];
   ft_l = throttle - outputs[0][0] + outputs[1][0] + outputs[2][0];
   ft_r = throttle - outputs[0][0] - outputs[1][0] - outputs[2][0];
+  }
+
+  if(!enable){
+    aft_l = aft_r = ft_l = ft_r = 0;
   }
   
   analogWrite(AFT_L_PIN, aft_l);

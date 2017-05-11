@@ -137,7 +137,8 @@ bool Adafruit_Simple_AHRS::getQuadOrientation(sensors_vec_t* orientation) {
   orientation->pitch_rate = -gyro_event.gyro.y;
   orientation->yaw_rate = -gyro_event.gyro.z;
   //TODO: Fix yaw calculation
-  orientation->yaw = 180 * atan (accel_event.acceleration.z/sqrt(accel_event.acceleration.x*accel_event.acceleration.x + accel_event.acceleration.z*accel_event.acceleration.z))/PI_F;
+  //yaw calculated on board
+  //orientation->yaw = 180 * atan (accel_event.acceleration.z/sqrt(accel_event.acceleration.x*accel_event.acceleration.x + accel_event.acceleration.z*accel_event.acceleration.z))/PI_F;
   //orientation->heading = orientation->heading * 180 / PI_F;
 
   return true;
