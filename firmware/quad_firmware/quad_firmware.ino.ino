@@ -53,6 +53,7 @@ float PIDaccs[3];//accumulator for pitch, roll, yaw
 long lastTimes[3];
 float lastErr[3][20];
 float outputs[3][12]; //0, pitch, 1 roll, 2 yaw holds memory of last 10 outputs for rolling filter
+float sensorCalibration[3][2];
 
 
 // Function to configure the sensors on the LSM9DS1 board.
@@ -70,6 +71,16 @@ void configureLSM9DS1(void)
 
 void initConstants(){
   PID[0][1] = 0;
+}
+
+void calibrateSensors(){
+  delay(1000);
+  readSensors();
+  for(int i =0; i < 3; i++){
+    for(int j =0; j <2; j++){
+      sensorCalibration[i][j] = sensorIns[i][j];
+    }
+  }
 }
 void setup() {
   // put your setup code here, to run once:
@@ -91,7 +102,9 @@ void setup() {
   
   configureLSM9DS1();
   initConstants();
+  calibrateSensors();
 }
+
 
 void loop() {
   // put your main code here, to run repeatedly:
@@ -106,9 +119,9 @@ void loop() {
   }*/
 
   readData();
+  if(packet.verify == 3435){
   readSensors();
   pidCalc();
-  if(packet.verify == 3435){
     writeToMotors();
   }
   //delay(1000);
@@ -142,17 +155,20 @@ void readData(){
     setpts[2] = packet.yaw;
     //scale throttle
    packet.throttle = (((float)packet.throttle)/1024.0)*255.0;
-
+   if(packet.verify == 3435){
    //change pid vals
    if(packet.btn2){
     enable = !enable;
    }
    //COMP_GAIN = ((float)packet.pot1)/1024.0;
+   //PID[0][0] = 1.26;
    PID[0][0] = ((float)packet.pot1)/1024.0*4.0;
+   //PID[0][2] = 2.26;
    PID[0][2] = ((float)packet.pot2)/1024.0*4.0;
-   //PID[0][1] = ((float)packet.pot2)/1024.0*3.0;
+   //PID[0][1] = ((float)packet.pot2)/1024.0*4.0;
    //PID[0][0] = 1.72;
    //PID[0][2] = 1.98;
+   }
    
     
   } 
@@ -160,12 +176,12 @@ void readData(){
 
 void readSensors(){
   ahrs.getQuadOrientation(&orientation);
-  sensorIns[0][0] = orientation.pitch;
-  sensorIns[0][1] = orientation.pitch_rate/1000;//convert from deg/s to deg/ms
-  sensorIns[1][0] = orientation.roll;
-  sensorIns[1][1] = orientation.roll_rate/1000;
-  sensorIns[2][0] = orientation.yaw;
-  sensorIns[2][1] = orientation.yaw_rate/1000;
+  sensorIns[0][0] = orientation.pitch - sensorCalibration[0][0];
+  sensorIns[0][1] = orientation.pitch_rate/1000;// - sensorCalibration[0][1];//convert from deg/s to deg/ms
+  sensorIns[1][0] = orientation.roll - sensorCalibration[1][0];
+  sensorIns[1][1] = orientation.roll_rate/1000;// - sensorCalibration[1][1];
+  sensorIns[2][0] = orientation.yaw - sensorCalibration[2][0];
+  sensorIns[2][1] = orientation.yaw_rate/1000;// - sensorCalibration[2][1];
   /*Serial.print(sensorIns[0]);
   Serial.print(' ');
   Serial.print(sensorIns[1]);
@@ -178,6 +194,9 @@ void pidCalc(){
   for (int i = 0; i < 3; i++){
     unsigned long currentTime = millis();
     long delta = currentTime-lastTimes[i];
+    if(delta > 50){
+      delta = 50;
+    }
     
     //set pitch
     if(i==2){
@@ -207,7 +226,7 @@ void pidCalc(){
       error = MAXERR;
     }
     
-    PIDaccs[i] += error;//*delta;//todo verify delta necessary
+    PIDaccs[i] += error*delta;//todo verify delta necessary
     //combat integral windup
     if(PIDaccs[i] > MAX/2){
       PIDaccs[i] = MAX/2;
