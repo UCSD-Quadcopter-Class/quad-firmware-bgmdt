@@ -3,6 +3,7 @@
 #define PACKET_H
 
 #include <radio.h>
+//#define PACKET_DEBUG 1
 
 typedef struct structPacket Packet;
 struct structPacket {
@@ -35,11 +36,14 @@ bool receivePacket(Packet &pkt){
     for(int i = 0; i < 9; ++i){
         int * reference = (int*)(buffer + 2*i);
         values[i] = *reference;
-        //Serial.print(values[i]);
-        //Serial.print(' ');
+		#ifdef PACKET_DEBUG
+        Serial.print(values[i]);
+        Serial.print(' ');
+		#endif
     }
-    //Serial.print('\n');
-    
+	#ifdef PACKET_DEBUG
+    Serial.print('\n');
+    #endif
     pkt.throttle = values[0];
     pkt.yaw = values[1];
     pkt.pitch = values[2];

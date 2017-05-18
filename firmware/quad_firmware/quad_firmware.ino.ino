@@ -7,6 +7,13 @@
 
 #include "packet.h"
 #include "radio.h"
+//debug macros
+#define PID_DEBUG 1
+
+//yaw, pitch roll offset
+#define PITCH_ZERO 460
+#define ROLL_ZERO 557
+#define YAW_ZERO 486
 
 // Create LSM9DS0 board instance.
 Adafruit_LSM9DS1     lsm(1000);  // Use I2C, ID #1000
@@ -21,7 +28,8 @@ float MAXERR = 45;
 int DEADZONE = 15;
 float COMP_GAIN = .94;
 int arr[8];
-bool enable = false;;
+bool enable = false;
+int offset = 0;
 
 
 /*typedef struct structPacket Packet;
@@ -133,22 +141,28 @@ void readData(){
     receivePacket(packet);
     //scale and add deadzone
     //change pitch from 0-1024 to -512 to 512
-    packet.pitch = packet.pitch - 460;//value from the stick is offset
+    packet.pitch = packet.pitch - PITCH_ZERO;//value from the stick is offset
     if(packet.pitch < DEADZONE && packet.pitch > -DEADZONE){
       packet.pitch = 0;
     }
     //scale to be -45 to 45 degrees
-    packet.pitch = ((float)packet.pitch) / 460.0 * 45.0;
+    packet.pitch = ((float)packet.pitch) / PITCH_ZERO * 45.0;
     if(packet.pitch > 45){
       packet.pitch = 45;
     }
     //do the same for roll
-    packet.roll = packet.roll - 460;
+    packet.roll = packet.roll - ROLL_ZERO;
     if(packet.roll < DEADZONE && packet.roll > -DEADZONE){
       packet.roll = 0;
     }
     //scale to be -45 to 45 degrees
-    packet.roll = ((float)packet.roll)/460.0*45.0;
+    packet.roll = ((float)packet.roll)/ROLL_ZERO*45.0;
+
+    //same for YAW
+    packet.yaw = packet.yaw - YAW_ZERO;
+    if(packet. yaw < DEADZONE && packet.yaw > -DEADZONE){
+      packet.yaw = 0;
+    }
 
     setpts[0] = packet.pitch;
     setpts[1] = packet.roll;
@@ -161,11 +175,12 @@ void readData(){
     enable = !enable;
    }
    //COMP_GAIN = ((float)packet.pot1)/1024.0;
-   //PID[0][0] = 1.26;
-   PID[0][0] = ((float)packet.pot1)/1024.0*4.0;
-   //PID[0][2] = 2.26;
-   PID[0][2] = ((float)packet.pot2)/1024.0*4.0;
-   //PID[0][1] = ((float)packet.pot2)/1024.0*4.0;
+   PID[0][0] = .33;
+   offset = 80;//((float)packet.pot1)/4.0;
+   //PID[0][0] = ((float)packet.pot1)/1024.0*4.0;
+   PID[0][2] = 3.69;
+   //PID[0][2] = ((float)packet.pot1)/1024.0*4.0;
+   PID[0][1] = ((float)packet.pot2)/1024.0*4.0;
    //PID[0][0] = 1.72;
    //PID[0][2] = 1.98;
    }
@@ -193,7 +208,7 @@ void pidCalc(){
   //loop for each of pitch, roll, yaw
   for (int i = 0; i < 3; i++){
     unsigned long currentTime = millis();
-    long delta = currentTime-lastTimes[i];
+    long delta = abs(currentTime-lastTimes[i]);
     if(delta > 50){
       delta = 50;
     }
@@ -256,9 +271,8 @@ void pidCalc(){
     outputs[i][0] = avg;
     lastErr[i][0] = error;
     lastTimes[i] = currentTime;
+    #ifdef PID_DEBUG
     if(i == 0){
-      Serial.print(orientation.pitch);
-      Serial.print(' ');
       Serial.print(sensorIns[0][0]);
       Serial.print(' ');
       Serial.print(sensorIns[0][1]);
@@ -270,6 +284,7 @@ void pidCalc(){
     Serial.print(delta);
     Serial.print(' ');
     }
+    #endif
     
   }
   Serial.print('\n');
@@ -297,7 +312,7 @@ void writeToMotors(){
   }
   else{
 
-  aft_l = throttle + outputs[0][0] + outputs[1][0] - outputs[2][0];
+  aft_l = throttle + outputs[0][0] + outputs[1][0] - outputs[2][0] + offset;
   aft_r = throttle + outputs[0][0] - outputs[1][0] + outputs[2][0];
   ft_l = throttle - outputs[0][0] + outputs[1][0] + outputs[2][0];
   ft_r = throttle - outputs[0][0] - outputs[1][0] - outputs[2][0];

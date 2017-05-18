@@ -45,7 +45,7 @@ int maxVals[8];
 int minVals[8];
 float scaleVals[8];
 
-int numbers[9] = {0,1,2,3,4,5,6,7, 8};
+int numbers[9] = {0,1,2,3,4,5,6,7, 3435};
 char *labels[8] = {"T ", "Y ", "P ", "R ", "P1", "P2", "B1", "B2"};
 
 char pins[8] = {PIN_THROTTLE, PIN_YAW, PIN_PITCH, PIN_ROLL, PIN_POT1, PIN_POT2, PIN_POT1, PIN_POT2};
@@ -121,7 +121,7 @@ void setup() {
 
 }
 
-int lastRead = 0;
+unsigned long lastRead = 0;
 void loop() {
 
   /* Remote Control Main Loop */
