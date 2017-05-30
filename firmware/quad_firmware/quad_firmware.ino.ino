@@ -175,12 +175,12 @@ void readData(){
     enable = !enable;
    }
    //COMP_GAIN = ((float)packet.pot1)/1024.0;
-   PID[0][0] = .33;
-   offset = 80;//((float)packet.pot1)/4.0;
-   //PID[0][0] = ((float)packet.pot1)/1024.0*4.0;
-   PID[0][2] = 3.69;
-   //PID[0][2] = ((float)packet.pot1)/1024.0*4.0;
-   PID[0][1] = ((float)packet.pot2)/1024.0*4.0;
+   //PID[0][0] = .33;
+   //offset = ((float)packet.pot1)/4.0;//80;
+   PID[0][0] = ((float)packet.pot1)/1024.0*2.0;
+   //PID[0][2] = 3.69;
+   PID[0][2] = ((float)packet.pot2)/1024.0*4.0;
+   //PID[0][1] = ((float)packet.pot2)/1024.0*4.0;
    //PID[0][0] = 1.72;
    //PID[0][2] = 1.98;
    }
@@ -312,7 +312,7 @@ void writeToMotors(){
   }
   else{
 
-  aft_l = throttle + outputs[0][0] + outputs[1][0] - outputs[2][0] + offset;
+  aft_l = throttle + outputs[0][0] + outputs[1][0] - outputs[2][0];// + offset;
   aft_r = throttle + outputs[0][0] - outputs[1][0] + outputs[2][0];
   ft_l = throttle - outputs[0][0] + outputs[1][0] + outputs[2][0];
   ft_r = throttle - outputs[0][0] - outputs[1][0] - outputs[2][0];
